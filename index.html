@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Friend Recommendation System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #f78166;
+    --gold: #e3b341;
+    --node: #388bfd;
+    --node-border: #58a6ff;
+    --selected: #e3b341;
+    --mutual: #3fb950;
+    --recommended: #f78166;
+    --edge-default: rgba(255,255,255,0.07);
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem 3rem;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 860px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, #388bfd 0%, #a371f7 100%);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .api-badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--accent2);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .controls label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  select {
+    flex: 1;
+    min-width: 140px;
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .btn {
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.15s, transform 0.1s, opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0d1117;
+  }
+  .btn-primary:hover:not(:disabled) { background: #79c0ff; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); color: var(--text); }
+
+  /* ── Canvas ── */
+  .canvas-wrap {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--surface);
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 440px;
+  }
+
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    position: absolute; inset: 0;
+    background: rgba(13,17,23,0.75);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    font-size: 13px; color: var(--text-muted);
+    gap: 10px;
+    display: none;
+  }
+  .loading-overlay.visible { display: flex; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Status bar ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-height: 38px;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.active { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  #stepLog {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Recommendations ── */
+  .recs-section { margin-top: 1.5rem; }
+  .recs-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+    min-height: 22px;
+  }
+  .recs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+  }
+  .rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.35s, transform 0.35s, border-color 0.2s;
+  }
+  .rec-card.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .rec-card:hover {
+    border-color: var(--recommended);
+  }
+  .rec-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--recommended);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .rec-via {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .rec-via strong { color: var(--accent2); }
+
+  .no-rec {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 13px;
+    padding: 10px 0;
+  }
+
+  /* ── Error toast ── */
+  .error-banner {
+    background: #2d1418;
+    border: 1px solid #4a1825;
+    color: var(--warn);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-top: 10px;
+    display: none;
+  }
+  .error-banner.visible { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🔗</div>
+    <div>
+      <h1>Friend Recommendation System</h1>
+      <p>Explore mutual connections using 2-hop graph traversal</p>
+    </div>
+    <span class="api-badge">Python / Flask API</span>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <label for="personSelect">Person</label>
+    <select id="personSelect"><option value="">Loading…</option></select>
+    <button class="btn btn-primary" id="animateBtn" disabled>▶ Animate</button>
+    <button class="btn btn-secondary" id="resetBtn">Reset</button>
+  </div>
+
+  <!-- Graph canvas -->
+  <div class="canvas-wrap">
+    <canvas id="graph"></canvas>
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <span>Fetching from API…</span>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="stepLog">Select a person and click "Animate"</span>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><span class="dot" style="background:#388bfd"></span>Person</div>
+    <div class="legend-item"><span class="dot" style="background:#e3b341"></span>Selected</div>
+    <div class="legend-item"><span class="dot" style="background:#3fb950"></span>Mutual friend path</div>
+    <div class="legend-item"><span class="dot" style="background:#f78166"></span>Recommended</div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Recommendations -->
+  <div class="recs-section">
+    <div class="recs-title" id="recsTitle"></div>
+    <div class="recs-grid" id="recsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let GRAPH = {};
+let people = [];
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+let W, H;
+const pos = {};
+
+const state = {
+  selected: null,
+  recommendations: {},
+  highlightEdges: [],
+  revealedRecs: [],
+  animating: false
+};
+
+const COLORS = {
+  node:             '#388bfd',
+  nodeBorder:       '#58a6ff',
+  selected:         '#e3b341',
+  selectedBorder:   '#c47a0a',
+  mutual:           '#3fb950',
+  mutualBorder:     '#2ea043',
+  recommended:      '#f78166',
+  recommendedBorder:'#da3633',
+  edge:             'rgba(255,255,255,0.07)',
+  highlightEdge:    '#3fb950',
+  recEdge:          '#f78166'
+};
+
+// ── API Helpers ────────────────────────────────────────────
+function setLoading(on) {
+  document.getElementById('loadingOverlay').classList.toggle('visible', on);
+}
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function clearError() {
+  document.getElementById('errorBanner').classList.remove('visible');
+}
+
+async function fetchGraph() {
+  setLoading(true);
+  try {
+    const res = await fetch('/api/graph');
+    if (!res.ok) throw new Error('Failed to load graph');
+    GRAPH = await res.json();
+    people = Object.keys(GRAPH).sort();
+    populateSelect();
+    placeNodes();
+    draw();
+    clearError();
+  } catch (e) {
+    showError('⚠ Could not connect to the Flask API. Make sure app.py is running on port 5000.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function fetchRecommendations(person) {
+  clearError();
+  setLoading(true);
+  try {
+    const res = await fetch(`/api/recommend/${encodeURIComponent(person)}`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    showError(`⚠ Failed to fetch recommendations: ${e.message}`);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Canvas Setup ───────────────────────────────────────────
+function dpr() { return window.devicePixelRatio || 1; }
+
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = rect.width; H = 440;
+  canvas.width  = Math.round(W * dpr());
+  canvas.height = Math.round(H * dpr());
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr(), dpr());
+  placeNodes();
+  draw();
+}
+
+function placeNodes() {
+  if (!people.length) return;
+  const cx = W / 2, cy = H / 2;
+  const r  = Math.min(W, H) * 0.37;
+  const hub = 'Arjun';
+  if (people.includes(hub)) pos[hub] = { x: cx, y: cy };
+  const rest = people.filter(p => p !== hub);
+  rest.forEach((p, i) => {
+    const angle = (i / rest.length) * Math.PI * 2 - Math.PI / 2;
+    pos[p] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
+}
+
+// ── Draw ───────────────────────────────────────────────────
+function draw(animEdge) {
+  ctx.clearRect(0, 0, W, H);
+
+  const allEdges = new Set();
+  people.forEach(p => {
+    (GRAPH[p] || []).forEach(f => allEdges.add([p, f].sort().join('--')));
+  });
+
+  // Default edges
+  allEdges.forEach(key => {
+    const [a, b] = key.split('--');
+    if (!pos[a] || !pos[b]) return;
+    const isHL = state.highlightEdges.some(([x,y]) => [x,y].sort().join('--') === key);
+    if (isHL) return;
+    ctx.beginPath();
+    ctx.moveTo(pos[a].x, pos[a].y);
+    ctx.lineTo(pos[b].x, pos[b].y);
+    ctx.strokeStyle = COLORS.edge;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Highlighted / animated edges
+  state.highlightEdges.forEach((edge, idx) => {
+    const key = edge.slice().sort().join('--');
+    const progress = (animEdge && animEdge.key === key) ? animEdge.progress : 1;
+    if (progress <= 0) return;
+    const [a, b] = edge;
+    if (!pos[a] || !pos[b]) return;
+    const sx = pos[a].x, sy = pos[a].y;
+    const ex = pos[b].x, ey = pos[b].y;
+    const tx = sx + (ex - sx) * progress;
+    const ty = sy + (ey - sy) * progress;
+    const color = (idx % 2 === 0) ? COLORS.highlightEdge : COLORS.recEdge;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tx, ty);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    if (progress >= 1) {
+      const angle = Math.atan2(ey - sy, ex - sx);
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-12, -5);
+      ctx.lineTo(-12, 5);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Nodes
+  people.forEach(p => {
+    if (!pos[p]) return;
+    const { x, y } = pos[p];
+    let fill = COLORS.node, border = COLORS.nodeBorder, r = 22;
+
+    if (p === state.selected) {
+      fill = COLORS.selected; border = COLORS.selectedBorder; r = 28;
+    } else if (state.revealedRecs.includes(p)) {
+      fill = COLORS.recommended; border = COLORS.recommendedBorder; r = 25;
+    } else if (state.highlightEdges.some(([a,b]) => (a === p || b === p) && p !== state.selected)) {
+      fill = COLORS.mutual; border = COLORS.mutualBorder; r = 24;
+    }
+
+    // Glow for selected / recommended
+    if (p === state.selected || state.revealedRecs.includes(p)) {
+      ctx.save();
+      ctx.shadowColor = fill;
+      ctx.shadowBlur  = 18;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.font = `bold ${r > 24 ? 13 : 12}px Inter, Arial, sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const label = p.length > 8 ? p.slice(0, 7) + '…' : p;
+    ctx.fillText(label, x, y);
+  });
+}
+
+// ── Animation ──────────────────────────────────────────────
+let animTimeout = null;
+
+function stopAnim() {
+  if (animTimeout) clearTimeout(animTimeout);
+  animTimeout = null;
+  state.animating = false;
+  setStatusDot(false);
+}
+
+function setStatusDot(active) {
+  document.getElementById('statusDot').classList.toggle('active', active);
+}
+
+function animateEdge(edge, onDone) {
+  let progress = 0;
+  const key = edge.slice().sort().join('--');
+  function tick() {
+    progress = Math.min(1, progress + 0.048);
+    draw({ key, progress });
+    if (progress < 1) animTimeout = setTimeout(tick, 16);
+    else onDone();
+  }
+  tick();
+}
+
+async function runAnimation(user) {
+  stopAnim();
+  state.selected = user;
+  state.highlightEdges = [];
+  state.revealedRecs = [];
+  state.animating = true;
+
+  document.getElementById('recsGrid').innerHTML = '';
+  document.getElementById('recsTitle').textContent = '';
+  document.getElementById('animateBtn').disabled = true;
+
+  setLog(`Calling API for ${user}'s recommendations…`);
+  setStatusDot(true);
+  draw();
+
+  const data = await fetchRecommendations(user);
+  if (!data) {
+    stopAnim();
+    document.getElementById('animateBtn').disabled = false;
+    return;
+  }
+
+  const { recommendations: recs, highlight_edges: hlEdges } = data;
+  state.recommendations = recs;
+
+  setLog(`Analysing ${user}'s network…`);
+
+  let i = 0;
+  function nextEdge() {
+    if (i >= hlEdges.length) {
+      stopAnim();
+      document.getElementById('animateBtn').disabled = false;
+      showRecs(user, recs);
+      setLog(
+        Object.keys(recs).length
+          ? `Found ${Object.keys(recs).length} recommendation(s) for ${user}.`
+          : `No new recommendations found for ${user}.`
+      );
+      return;
+    }
+
+    const edge = hlEdges[i];
+    const [a, b] = edge;
+    const isUserEdge = a === user || b === user;
+    if (isUserEdge) {
+      const friend = a === user ? b : a;
+      setLog(`Exploring ${user}'s friend: ${friend}…`);
+    } else {
+      setLog(`Checking path: ${a} → ${b}…`);
+    }
+
+    state.highlightEdges.push(edge);
+
+    animateEdge(edge, () => {
+      Object.entries(recs).forEach(([rec, via]) => {
+        const recEdgeKey = [via, rec].sort().join('--');
+        const covered = hlEdges.slice(0, i + 1).some(e => e.slice().sort().join('--') === recEdgeKey);
+        if (covered && !state.revealedRecs.includes(rec)) {
+          state.revealedRecs.push(rec);
+        }
+      });
+      draw();
+      i++;
+      animTimeout = setTimeout(nextEdge, 300);
+    });
+  }
+
+  animTimeout = setTimeout(nextEdge, 400);
+}
+
+function setLog(msg) {
+  document.getElementById('stepLog').textContent = msg;
+}
+
+function showRecs(user, recs) {
+  const grid  = document.getElementById('recsGrid');
+  const title = document.getElementById('recsTitle');
+  const entries = Object.entries(recs);
+
+  title.textContent = entries.length
+    ? `Recommendations for ${user}`
+    : `No new recommendations for ${user}`;
+
+  if (!entries.length) {
+    const el = document.createElement('div');
+    el.className = 'no-rec';
+    el.textContent = `${user} is already connected to everyone reachable through their friends!`;
+    grid.appendChild(el);
+    return;
+  }
+
+  entries.forEach(([rec, via], idx) => {
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    card.innerHTML = `
+      <div class="rec-name">${rec}</div>
+      <div class="rec-via">via mutual friend <strong>${via}</strong></div>
+    `;
+    grid.appendChild(card);
+    setTimeout(() => card.classList.add('show'), idx * 130);
+  });
+}
+
+// ── Bootstrap ──────────────────────────────────────────────
+function populateSelect() {
+  const sel = document.getElementById('personSelect');
+  sel.innerHTML = '';
+  people.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+  document.getElementById('animateBtn').disabled = false;
+}
+
+document.getElementById('animateBtn').addEventListener('click', () => {
+  const user = document.getElementById('personSelect').value;
+  if (user) runAnimation(user);
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stopAnim();
+  state.selected = null;
+  state.highlightEdges = [];
+  state.revealedRecs = [];
+  document.getElementById('recsGrid').innerHTML = '';
+  document.getElementById('recsTitle').textContent = '';
+  setLog('Select a person and click "Animate"');
+  clearError();
+  draw();
+});
+
+document.getElementById('personSelect').addEventListener('change', () => {
+  stopAnim();
+  state.selected = null;
+  state.highlightEdges = [];
+  state.revealedRecs = [];
+  document.getElementById('recsGrid').innerHTML = '';
+  document.getElementById('recsTitle').textContent = '';
+  setLog('Click "Animate" to start.');
+  clearError();
+  draw();
+});
+
+window.addEventListener('resize', resize);
+resize();
+fetchGraph();
+</script>
+</body>
+</html>
